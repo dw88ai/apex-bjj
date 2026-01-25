@@ -9,6 +9,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.7.0] - 2026-01-25
+
+### Added - Game Plan & Coaching System 🎯
+
+**Major Feature**: Transform from passive tracking app to active coaching tool with personalized game plans.
+
+#### Game Plan Generator (`utils/gamePlanGenerator.ts`)
+- **Intelligent rule-based generation** - Creates personalized plans in <1 second
+- **Analyzes recent performance** - Uses last 3-5 training sessions
+- **Identifies recurring problems** - Suggests objectives to address weak points
+- **Adapts to belt level** - White → Black belt progression
+- **Position-specific objectives** - Tailored for each of 7 positions
+- **Mental cues** - Memorable 5-7 word reminders
+
+#### Drill Library (`utils/drillLibrary.ts`)
+- **23 position-specific drills** across 7 positions
+- **Week-by-week progression** - Beginner → Advanced drills
+- **Partner vs. solo drills** - Flexibility for training alone
+- **Detailed instructions** - Step-by-step with focus points
+- **Video clip URLs** - YouTube timestamps for each drill
+- **Built-in drill timer** - Countdown with haptic feedback
+
+#### New Data Types (`types/index.ts`)
+- `SessionGamePlan` - Complete game plan structure
+- `GamePlanObjective` - Specific, measurable objectives
+- `DrillRecommendation` - Drill with instructions
+- `RollingStrategy` - Live rolling guidance
+- `ObjectiveAchievement` - Post-session tracking
+
+#### GamePlanCard Component (`components/cards/GamePlanCard.tsx`)
+- **Home screen preview** - Shows today's primary objective
+- **Mental cue display** - Prominent reminder
+- **Quick drill suggestion** - Recommended drill with duration
+- **Tappable navigation** - Opens full game plan screen
+
+#### Full Game Plan Screen (`app/gameplan/today.tsx`)
+- **Mental cue** - Big, bold display
+- **3 objectives** - Primary + 2 secondary with targets
+- **Recommended drills** - 2-3 drills with focus points
+- **Rolling strategy** - How to practice during live rolling
+- **Fallback plan** - What to do if objectives aren't working
+- **"Start Training" CTA** - Navigates to pre-session
+
+#### Drill Detail Screen (`app/gameplan/drill/[id].tsx`)
+- **Countdown timer** - Start/pause/reset with haptics
+- **Video tutorial button** - Opens in-app browser
+- **Step-by-step instructions** - Numbered list
+- **Focus points** - Key things to remember
+
+#### Objectives Tracking (`app/training/post-session.tsx`)
+- **Objectives review modal** - Appears after logging escape rate
+- **Achievement rating** - Yes / Partially / No for each objective
+- **Linked to training log** - Objectives saved with session data
+- **Optional flow** - Can skip if desired
+
+#### Pre-Session Enhancement (`app/training/pre-session.tsx`)
+- **Mental cue display** - Prominent reminder
+- **Primary objective** - Today's focus
+- **Rolling strategy card** - Starting position, goal reps
+- **"How to ask" script** - Reduces social friction
+- **Tactical notes** - 3 practical tips
+- **View full game plan link** - Navigates to today.tsx
+
+#### Mission Management (`app/(tabs)/settings.tsx`)
+- **"Change Mission" button** - Abandon current, start new
+- **Mission status display** - Position + week progress
+- **Confirmation dialog** - Warns about abandoning
+- **Preserves training logs** - History maintained
+
+**Files Created:**
+- `utils/gamePlanGenerator.ts`
+- `utils/drillLibrary.ts`
+- `components/cards/GamePlanCard.tsx`
+- `app/gameplan/_layout.tsx`
+- `app/gameplan/today.tsx`
+- `app/gameplan/drill/[id].tsx`
+- `GAME_PLAN_IMPLEMENTATION.md`
+- `MISSION_MANAGEMENT.md`
+
+**Files Modified:**
+- `types/index.ts` - Added 5 new interfaces
+- `context/AppContext.tsx` - Added abandonCurrentMission()
+- `app/(tabs)/index.tsx` - Integrated GamePlanCard
+- `app/training/post-session.tsx` - Added objectives tracking
+- `app/training/pre-session.tsx` - Complete redesign with rolling strategy
+- `app/(tabs)/settings.tsx` - Added mission management section
+
+---
+
+## [0.6.0] - 2026-01-24
+
+### Added - Usability Improvements 🔥
+
+**5 High-Impact Quick Wins:**
+
+#### 1. Watched Video Badges
+- **Checkmark icon** when video is completed
+- **"Watched" badge** overlay on video buttons
+- **Auto-refresh** status after closing video
+
+#### 2. Floating Action Button (FAB)
+- **Quick "+" menu** on home screen
+- **3 actions**: Voice Log, Quick Log, Set Focus
+- **Animated expansion** with backdrop
+- **Haptic feedback** on interactions
+
+#### 3. Better Empty States
+- **No Active Mission** - Clear CTA to start mission
+- **No Progress Data** - Prompt to log first session
+- **Helpful illustrations** - Emoji icons and descriptions
+
+#### 4. Streak Visualization
+- **Fire emoji progression** - 💤 → 🔥 → 🔥🔥 → 🔥🔥🔥
+- **Motivational messages** - Context-based encouragement
+- **Visual card design** - Prominent on home screen
+
+#### 5. Inline Escape Rate Calculator
+- **Live percentage** as user inputs data
+- **Comparison to last session** - Up/down indicator
+- **Color-coded feedback** - Green/blue/gray based on rate
+- **Motivational emoji** - 🔥💪👍🎯 based on performance
+
+**Files Created:**
+- `components/ui/FAB.tsx`
+- `USABILITY_IMPROVEMENTS.md`
+
+**Files Modified:**
+- `app/(tabs)/index.tsx` - FAB, streak visualization, watched badges
+- `app/(tabs)/progress.tsx` - Better empty states
+- `app/training/post-session.tsx` - Inline escape rate calculator
+
+---
+
 ## [0.5.0] - 2026-01-24
 
 ### Added - In-App Video Player 🎥
@@ -311,6 +446,8 @@ When making changes:
 
 ## Version History
 
+- **0.7.0** - Game Plan & Coaching System (2026-01-25) ⭐ LATEST
+- **0.6.0** - Usability Improvements (2026-01-24)
 - **0.5.0** - In-App Video Player (2026-01-24)
 - **0.4.0** - YouTube Video Links (2026-01-24)
 - **0.3.0** - DM Sans Font (2026-01-23)
