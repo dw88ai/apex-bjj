@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Mission, TrainingLog, WeeklyReview } from '../types';
+import { SystemUsageStats } from '../types/battlecards';
 import * as Storage from '../utils/storage';
 
 interface AppContextType {
@@ -32,6 +34,10 @@ interface AppContextType {
   // Loading states
   loading: boolean;
   
+  // Battle Card Systems
+  systemUsageStats: SystemUsageStats[];
+  trackSystemUsage: (systemId: string, decision?: string) => Promise<void>;
+  
   // Actions
   resetApp: () => Promise<void>;
 }
@@ -44,6 +50,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [trainingLogs, setTrainingLogs] = useState<TrainingLog[]>([]);
   const [weeklyReviews, setWeeklyReviews] = useState<WeeklyReview[]>([]);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [systemUsageStats, setSystemUsageStats] = useState<SystemUsageStats[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load data on mount
@@ -61,12 +68,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         storedLogs,
         storedReviews,
         onboardingDone,
+        storedSystemStats,
       ] = await Promise.all([
         Storage.getUser(),
         Storage.getActiveMission(),
         Storage.getTrainingLogs(),
         Storage.getWeeklyReviews(),
         Storage.isOnboardingComplete(),
+        AsyncStorage.getItem('systemUsageStats'),
       ]);
 
       setUserState(storedUser);
@@ -74,6 +83,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setTrainingLogs(storedLogs);
       setWeeklyReviews(storedReviews);
       setOnboardingComplete(onboardingDone);
+      
+      if (storedSystemStats) {
+        try {
+          const parsed = JSON.parse(storedSystemStats);
+          // Convert date strings back to Date objects
+          const statsWithDates = parsed.map((stat: SystemUsageStats) => ({
+            ...stat,
+            lastVisited: new Date(stat.lastVisited),
+            decisionsTracked: stat.decisionsTracked.map((d: { option: string; timestamp: string | Date }) => ({
+              ...d,
+              timestamp: new Date(d.timestamp),
+            })),
+          }));
+          setSystemUsageStats(statsWithDates);
+        } catch (e) {
+          console.error('Error parsing system usage stats:', e);
+        }
+      }
     } catch (error) {
       console.error('Error loading app data:', error);
     } finally {
@@ -205,14 +232,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const trackSystemUsage = async (systemId: string, decision?: string) => {
+    try {
+      const existingIndex = systemUsageStats.findIndex(s => s.systemId === systemId);
+      let updated: SystemUsageStats[];
+      
+      if (existingIndex >= 0) {
+        // Update existing stat
+        updated = [...systemUsageStats];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          timesVisited: updated[existingIndex].timesVisited + (decision ? 0 : 1), // Only increment on initial visit
+          lastVisited: new Date(),
+          decisionsTracked: decision
+            ? [...updated[existingIndex].decisionsTracked, { option: decision, timestamp: new Date() }]
+            : updated[existingIndex].decisionsTracked,
+        };
+      } else {
+        // Create new stat
+        const newStat: SystemUsageStats = {
+          systemId,
+          timesVisited: 1,
+          lastVisited: new Date(),
+          decisionsTracked: decision ? [{ option: decision, timestamp: new Date() }] : [],
+        };
+        updated = [...systemUsageStats, newStat];
+      }
+      
+      setSystemUsageStats(updated);
+      await AsyncStorage.setItem('systemUsageStats', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error tracking system usage:', error);
+    }
+  };
+
   const resetApp = async () => {
     try {
       await Storage.clearAllData();
+      await AsyncStorage.removeItem('systemUsageStats');
       setUserState(null);
       setActiveMissionState(null);
       setTrainingLogs([]);
       setWeeklyReviews([]);
       setOnboardingComplete(false);
+      setSystemUsageStats([]);
     } catch (error) {
       console.error('Error resetting app:', error);
       throw error;
@@ -237,6 +300,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     onboardingComplete,
     completeOnboarding,
     loading,
+    systemUsageStats,
+    trackSystemUsage,
     resetApp,
   };
 

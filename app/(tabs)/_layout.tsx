@@ -35,6 +35,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="systems"
+        options={{
+          title: 'Systems',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="strategy" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

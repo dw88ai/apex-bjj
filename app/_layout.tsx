@@ -36,6 +36,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="training" />
             <Stack.Screen name="review" />
+            <Stack.Screen name="battlecards" />
             <Stack.Screen name="mission-complete" />
             <Stack.Screen name="seed" />
           </Stack>

@@ -286,6 +286,30 @@ export default function Home() {
           Log general training
         </Button>
 
+        {/* Study Systems Quick Access */}
+        <Card style={styles.systemsCard}>
+          <View style={styles.systemsCardContent}>
+            <View style={styles.systemsCardText}>
+              <Text variant="titleMedium" style={styles.systemsCardTitle}>
+                Study BJJ Systems
+              </Text>
+              <Text variant="bodySmall" style={styles.systemsCardDescription}>
+                Decision trees for positions
+              </Text>
+            </View>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/(tabs)/systems');
+              }}
+              icon="cards"
+            >
+              Open
+            </Button>
+          </View>
+        </Card>
+
         {/* This Week's Focus */}
         {currentWeekGoal && (
           <Card>
@@ -579,6 +603,25 @@ const styles = StyleSheet.create({
   },
   generalLogButton: {
     marginVertical: spacing.sm,
+  },
+  systemsCard: {
+    marginBottom: spacing.md,
+  },
+  systemsCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  systemsCardText: {
+    flex: 1,
+  },
+  systemsCardTitle: {
+    color: Colors.text,
+    fontWeight: 'bold',
+  },
+  systemsCardDescription: {
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   bottomSpacer: {
     height: spacing.xl,
