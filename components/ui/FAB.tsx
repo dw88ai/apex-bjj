@@ -21,15 +21,15 @@ export const FAB: React.FC<FABProps> = ({ actions }) => {
 
   const toggleMenu = () => {
     const toValue = open ? 0 : 1;
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     Animated.spring(animation, {
       toValue,
       friction: 5,
       useNativeDriver: true,
     }).start();
-    
+
     setOpen(!open);
   };
 
@@ -46,49 +46,62 @@ export const FAB: React.FC<FABProps> = ({ actions }) => {
 
   return (
     <View style={styles.container}>
+      {/* Backdrop */}
+      {
+        open && (
+          <TouchableOpacity
+            style={styles.backdrop}
+            onPress={toggleMenu}
+            activeOpacity={1}
+          />
+        )
+      }
+
       {/* Action Buttons */}
-      {open && actions.map((action, index) => {
-        const translateY = animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, -(60 * (actions.length - index))],
-        });
+      {
+        open && actions.map((action, index) => {
+          const translateY = animation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -(60 * (actions.length - index))],
+          });
 
-        const scale = animation.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, 1],
-        });
+          const scale = animation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+          });
 
-        return (
-          <Animated.View
-            key={index}
-            style={[
-              styles.actionButton,
-              {
-                transform: [{ translateY }, { scale }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => handleActionPress(action)}
-              style={styles.actionTouchable}
+          return (
+            <Animated.View
+              key={index}
+              style={[
+                styles.actionButton,
+                {
+                  transform: [{ translateY }, { scale }],
+                },
+              ]}
             >
-              <View style={styles.actionContent}>
-                <Text variant="labelMedium" style={styles.actionLabel}>
-                  {action.label}
-                </Text>
-                <View style={styles.actionIcon}>
-                  <IconButton
-                    icon={action.icon}
-                    iconColor={Colors.text}
-                    size={24}
-                    onPress={() => handleActionPress(action)}
-                  />
+              <TouchableOpacity
+                onPress={() => handleActionPress(action)}
+                style={styles.actionTouchable}
+              >
+                <View style={styles.actionContent}>
+                  <Text variant="labelMedium" style={styles.actionLabel}>
+                    {action.label}
+                  </Text>
+                  <View style={styles.actionIcon}>
+                    <IconButton
+                      icon={action.icon}
+                      iconColor={Colors.text}
+                      size={24}
+                      onPress={() => handleActionPress(action)}
+                    />
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        );
-      })}
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })
+      }
 
       {/* Main FAB Button */}
       <TouchableOpacity onPress={toggleMenu} style={styles.fab}>
@@ -101,16 +114,7 @@ export const FAB: React.FC<FABProps> = ({ actions }) => {
           />
         </Animated.View>
       </TouchableOpacity>
-
-      {/* Backdrop */}
-      {open && (
-        <TouchableOpacity
-          style={styles.backdrop}
-          onPress={toggleMenu}
-          activeOpacity={1}
-        />
-      )}
-    </View>
+    </View >
   );
 };
 

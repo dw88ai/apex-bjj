@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Modal as RNModal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Text, ActivityIndicator, TextInput } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Audio } from 'expo-av';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 export default function PostSession() {
   const router = useRouter();
   const { activeMission, user, addTrainingLog, trainingLogs } = useApp();
-  
+
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
@@ -44,10 +44,15 @@ export default function PostSession() {
   const [objectiveAchievements, setObjectiveAchievements] = useState<Record<string, 'yes' | 'partial' | 'no'>>({});
   const [showObjectivesReview, setShowObjectivesReview] = useState(false);
 
-  // Load game plan on mount
+  const { initialMode } = useLocalSearchParams();
+
+  // Load game plan on mount and check params
   React.useEffect(() => {
+    if (initialMode === 'quick') {
+      setShowQuickLog(true);
+    }
     loadGamePlan();
-  }, [activeMission]);
+  }, [activeMission, initialMode]);
 
   // Cleanup timer on unmount
   React.useEffect(() => {
@@ -69,7 +74,7 @@ export default function PostSession() {
 
       const plan = await getTodaysGamePlan(activeMission, recentLogs, user.beltLevel);
       setGamePlan(plan);
-      
+
       // Initialize objectives achievements
       const initialAchievements: Record<string, 'yes' | 'partial' | 'no'> = {};
       plan.objectives.forEach(obj => {
@@ -92,7 +97,7 @@ export default function PostSession() {
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
-      
+
       setRecording(recording);
       setIsRecording(true);
       setRecordingTime(0);
@@ -133,7 +138,7 @@ export default function PostSession() {
     if (uri) {
       await processRecording(uri);
     }
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
@@ -185,11 +190,11 @@ export default function PostSession() {
       // Build objectives achievements array
       const objectivesAchieved: ObjectiveAchievement[] = gamePlan
         ? gamePlan.objectives.map(obj => ({
-            objectiveId: obj.id,
-            objectiveText: obj.description,
-            targetReps: obj.targetReps,
-            achieved: objectiveAchievements[obj.id] || 'no',
-          }))
+          objectiveId: obj.id,
+          objectiveText: obj.description,
+          targetReps: obj.targetReps,
+          achieved: objectiveAchievements[obj.id] || 'no',
+        }))
         : [];
 
       const log: TrainingLog = {
@@ -286,9 +291,9 @@ export default function PostSession() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content}>
-        <Button 
-          mode="text" 
-          onPress={() => router.back()} 
+        <Button
+          mode="text"
+          onPress={() => router.back()}
           icon="arrow-left"
           style={styles.backButton}
         >
@@ -406,11 +411,11 @@ export default function PostSession() {
                     </Text>
                     {(() => {
                       const rate = parsedData.successfulEscapes / parsedData.escapeAttempts;
-                      const lastSessionRate = trainingLogs.length > 0 
-                        ? trainingLogs[trainingLogs.length - 1].escapeRate 
+                      const lastSessionRate = trainingLogs.length > 0
+                        ? trainingLogs[trainingLogs.length - 1].escapeRate
                         : 0;
                       const improvement = rate - lastSessionRate;
-                      
+
                       if (trainingLogs.length > 0 && improvement !== 0) {
                         return (
                           <Text variant="bodySmall" style={[
@@ -422,13 +427,13 @@ export default function PostSession() {
                           </Text>
                         );
                       }
-                      
+
                       return (
                         <Text variant="bodySmall" style={styles.escapeRateMessage}>
                           {rate >= 0.7 ? '🔥 Excellent work!' :
-                           rate >= 0.5 ? '💪 Great progress!' :
-                           rate >= 0.3 ? '👍 Keep practicing!' :
-                           '🎯 Focus on fundamentals'}
+                            rate >= 0.5 ? '💪 Great progress!' :
+                              rate >= 0.3 ? '👍 Keep practicing!' :
+                                '🎯 Focus on fundamentals'}
                         </Text>
                       );
                     })()}
@@ -489,7 +494,7 @@ export default function PostSession() {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <ScrollView 
+              <ScrollView
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={styles.modalScrollContent}
@@ -594,7 +599,7 @@ export default function PostSession() {
                   const escapes = parseQuickValue(quickEscapes);
                   const attempts = parseQuickValue(quickAttempts);
                   const rate = attempts > 0 ? escapes / attempts : 0;
-                  
+
                   return (
                     <View style={styles.quickEscapeRateCard}>
                       <View style={styles.escapeRateHeader}>
@@ -605,8 +610,8 @@ export default function PostSession() {
                           styles.escapeRateValue,
                           {
                             color: rate >= 0.5 ? Colors.success :
-                                   rate >= 0.3 ? Colors.primary :
-                                   Colors.textSecondary
+                              rate >= 0.3 ? Colors.primary :
+                                Colors.textSecondary
                           }
                         ]}>
                           {Math.round(rate * 100)}%

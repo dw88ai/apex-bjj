@@ -61,11 +61,11 @@ export default function Home() {
 
   const checkVideoWatched = async () => {
     if (!activeMission) return;
-    
+
     const currentWeekGoal = activeMission.weeklyGoals?.find(
       g => g.weekNumber === stats.currentWeek
     );
-    
+
     if (currentWeekGoal?.videoUrl) {
       const videoId = extractVideoId(currentWeekGoal.videoUrl);
       if (videoId) {
@@ -77,10 +77,10 @@ export default function Home() {
 
   const checkMissionCompletion = () => {
     if (!activeMission) return;
-    
+
     const now = new Date();
     const endDate = new Date(activeMission.endDate);
-    
+
     // Check if mission is complete (past end date and has some logs)
     if (now > endDate && trainingLogs.length > 0) {
       // Show mission complete prompt
@@ -94,7 +94,7 @@ export default function Home() {
     if (!activeMission) return;
 
     const missionLogs = trainingLogs.filter(log => log.missionId === activeMission.id);
-    
+
     // Calculate current week
     const daysSinceStart = Math.floor(
       (new Date().getTime() - new Date(activeMission.startDate).getTime()) / (1000 * 60 * 60 * 24)
@@ -107,11 +107,11 @@ export default function Home() {
     const thisWeekLogs = missionLogs.filter(
       log => new Date(log.sessionDate) >= weekStart
     );
-    
+
     const escapeRate = thisWeekLogs.length > 0
       ? Math.round(
-          (thisWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / thisWeekLogs.length) * 100
-        )
+        (thisWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / thisWeekLogs.length) * 100
+      )
       : 0;
 
     // Calculate last week's escape rate for trend
@@ -122,11 +122,11 @@ export default function Home() {
     const lastWeekLogs = missionLogs.filter(
       log => new Date(log.sessionDate) >= lastWeekStart && new Date(log.sessionDate) < lastWeekEnd
     );
-    
+
     const lastWeekEscapeRate = lastWeekLogs.length > 0
       ? Math.round(
-          (lastWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / lastWeekLogs.length) * 100
-        )
+        (lastWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / lastWeekLogs.length) * 100
+      )
       : 0;
 
     const trend = escapeRate - lastWeekEscapeRate;
@@ -134,8 +134,8 @@ export default function Home() {
     // Average escape rate
     const avgEscapeRate = missionLogs.length > 0
       ? Math.round(
-          (missionLogs.reduce((sum, log) => sum + log.escapeRate, 0) / missionLogs.length) * 100
-        )
+        (missionLogs.reduce((sum, log) => sum + log.escapeRate, 0) / missionLogs.length) * 100
+      )
       : 0;
 
     // Calculate streak (days trained in a row)
@@ -149,7 +149,7 @@ export default function Home() {
     for (const log of sortedLogs) {
       const logDate = new Date(log.sessionDate);
       logDate.setHours(0, 0, 0, 0);
-      
+
       const diffDays = Math.floor(
         (currentDate.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -218,8 +218,8 @@ export default function Home() {
             <Text variant="bodyMedium" style={styles.emptyDescription}>
               Or log a general training session without a mission.
             </Text>
-            <Button 
-              mode="outlined" 
+            <Button
+              mode="outlined"
               onPress={() => router.push('/training/general-log')}
               icon="plus-circle"
             >
@@ -339,7 +339,7 @@ export default function Home() {
                   icon={videoWatched ? "check-circle" : "play-circle"}
                   style={styles.videoButton}
                 >
-                  {`${videoWatched ? '✓ ' : ''}${currentWeekGoal.videoTimestamp 
+                  {`${videoWatched ? '✓ ' : ''}${currentWeekGoal.videoTimestamp
                     ? `Watch: ${currentWeekGoal.videoTimestamp}`
                     : 'Watch: Video Tutorial'}`}
                 </Button>
@@ -465,7 +465,7 @@ export default function Home() {
           {
             icon: 'lightning-bolt',
             label: 'Quick Log',
-            onPress: () => router.push('/training/post-session'),
+            onPress: () => router.push('/training/post-session?initialMode=quick'),
           },
           {
             icon: 'target',
