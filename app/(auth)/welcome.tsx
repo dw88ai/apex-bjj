@@ -60,6 +60,13 @@ export default function Welcome() {
           <Button onPress={() => router.push('/(auth)/how-it-works')}>
             Start Your First Mission
           </Button>
+          <Button 
+            mode="text" 
+            onPress={() => router.push('/(auth)/login' as any)}
+            style={styles.signInButton}
+          >
+            Already have an account? Sign In
+          </Button>
         </View>
       </View>
     </SafeAreaView>
@@ -115,5 +122,8 @@ const styles = StyleSheet.create({
   },
   footer: {
     marginBottom: spacing.lg,
+  },
+  signInButton: {
+    marginTop: spacing.md,
   },
 });

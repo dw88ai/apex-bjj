@@ -1,5 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Mission, TrainingLog, WeeklyReview, SessionGamePlan } from '../types';
+import { 
+  syncMission, 
+  syncTrainingLog, 
+  syncWeeklyReview, 
+  syncUserProfile,
+  deleteTrainingLogFromCloud 
+} from '../lib/supabase';
 
 const KEYS = {
   USER: '@apexbjj:user',
@@ -14,6 +21,13 @@ const KEYS = {
 // User
 export const saveUser = async (user: User): Promise<void> => {
   await AsyncStorage.setItem(KEYS.USER, JSON.stringify(user));
+  
+  // Background sync profile to cloud (non-blocking)
+  syncUserProfile({
+    beltLevel: user.beltLevel,
+    trainingFrequency: user.trainingFrequency,
+    onboardingComplete: true,
+  }).catch(() => {});
 };
 
 export const getUser = async (): Promise<User | null> => {
@@ -37,6 +51,9 @@ export const saveMission = async (mission: Mission): Promise<void> => {
   }
   
   await AsyncStorage.setItem(KEYS.MISSIONS, JSON.stringify(missions));
+  
+  // Background sync to cloud (non-blocking)
+  syncMission(mission).catch(() => {});
 };
 
 export const getMissions = async (): Promise<Mission[]> => {
@@ -77,6 +94,9 @@ export const saveTrainingLog = async (log: TrainingLog): Promise<void> => {
   }
   
   await AsyncStorage.setItem(KEYS.TRAINING_LOGS, JSON.stringify(logs));
+  
+  // Background sync to cloud (non-blocking)
+  syncTrainingLog(log).catch(() => {});
 };
 
 export const getTrainingLogs = async (missionId?: string): Promise<TrainingLog[]> => {
@@ -148,6 +168,9 @@ export const deleteTrainingLog = async (logId: string): Promise<void> => {
     }
     
     await AsyncStorage.setItem(KEYS.TRAINING_LOGS, JSON.stringify(filteredLogs));
+    
+    // Background delete from cloud (non-blocking)
+    deleteTrainingLogFromCloud(logId).catch(() => {});
   } catch (error) {
     console.error('Error deleting training log:', error);
     throw error;
@@ -166,6 +189,9 @@ export const saveWeeklyReview = async (review: WeeklyReview): Promise<void> => {
   }
   
   await AsyncStorage.setItem(KEYS.WEEKLY_REVIEWS, JSON.stringify(reviews));
+  
+  // Background sync to cloud (non-blocking)
+  syncWeeklyReview(review).catch(() => {});
 };
 
 export const getWeeklyReviews = async (missionId?: string): Promise<WeeklyReview[]> => {

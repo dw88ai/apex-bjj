@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, Modal as RNModal } from 'react-native';
 import { Text, Switch, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,12 +8,47 @@ import { Card } from '../../components/ui/Card';
 import { Colors } from '../../constants/colors';
 import { spacing } from '../../constants/theme';
 import { useApp } from '../../context/AppContext';
+import { supabase, signOut, isSupabaseConfigured } from '../../lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 export default function Settings() {
   const router = useRouter();
   const { user, activeMission, abandonCurrentMission, resetApp } = useApp();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    // Get initial session
+    if (isSupabaseConfigured()) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+      });
+
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+      });
+
+      return () => subscription.unsubscribe();
+    }
+  }, []);
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'You will be signed out. Your local data will remain on this device.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          onPress: async () => {
+            await signOut();
+          },
+        },
+      ]
+    );
+  };
 
   const handleChangeMission = () => {
     Alert.alert(
@@ -99,6 +134,58 @@ export default function Settings() {
               <Text variant="bodySmall" style={styles.featureItem}>
                 • Advanced analytics & insights
               </Text>
+            </>
+          )}
+        </Card>
+
+        {/* Account / Cloud Sync */}
+        <Card>
+          <Text variant="titleLarge" style={styles.sectionTitle}>
+            Account
+          </Text>
+          {session ? (
+            <>
+              <View style={styles.profileItem}>
+                <Text variant="bodyMedium" style={styles.profileLabel}>
+                  Email:
+                </Text>
+                <Text variant="bodyMedium" style={styles.profileValue}>
+                  {session.user.email}
+                </Text>
+              </View>
+              <View style={styles.profileItem}>
+                <Text variant="bodyMedium" style={styles.profileLabel}>
+                  Cloud Sync:
+                </Text>
+                <Text variant="bodyMedium" style={[styles.profileValue, { color: Colors.success }]}>
+                  Enabled
+                </Text>
+              </View>
+              <Button 
+                mode="outlined" 
+                onPress={handleSignOut}
+                style={styles.accountButton}
+              >
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Text variant="bodyMedium" style={styles.accountInfo}>
+                {isSupabaseConfigured() 
+                  ? 'Sign in to sync your training data across devices'
+                  : 'Cloud sync not configured. Data is stored locally.'
+                }
+              </Text>
+              {isSupabaseConfigured() && (
+                <Button 
+                  mode="outlined" 
+                  onPress={() => router.push('/(auth)/login' as any)}
+                  style={styles.accountButton}
+                >
+                  Sign In / Create Account
+                </Button>
+              )}
             </>
           )}
         </Card>
@@ -436,6 +523,13 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: spacing.sm,
     fontStyle: 'italic',
+  },
+  accountInfo: {
+    color: Colors.textSecondary,
+    marginBottom: spacing.md,
+  },
+  accountButton: {
+    marginTop: spacing.sm,
   },
   dangerCard: {
     borderWidth: 1,

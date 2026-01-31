@@ -4,7 +4,10 @@ export default function AuthLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="welcome" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="how-it-works" />
       <Stack.Screen name="profile-setup" />
+      <Stack.Screen name="coaches" />
       <Stack.Screen name="mission-preview" />
     </Stack>
   );

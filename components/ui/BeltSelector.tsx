@@ -94,21 +94,23 @@ const styles = StyleSheet.create({
   beltCard: {
     alignItems: 'center',
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: Colors.surface,
     borderWidth: 2,
     borderColor: 'transparent',
-    minWidth: 100,
+    minWidth: 110,
+    minHeight: 100, // Touch target
+    justifyContent: 'center',
   },
   beltCardSelected: {
     borderColor: Colors.primary,
     backgroundColor: Colors.surface,
   },
   beltIcon: {
-    width: 60,
-    height: 20,
+    width: 80, // Larger belt
+    height: 24,
     borderRadius: 4,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     position: 'relative',
     borderWidth: 1,
     borderColor: Colors.border,

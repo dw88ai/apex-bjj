@@ -30,16 +30,20 @@ export default function RootLayout() {
       <AppProvider>
         <PaperProvider theme={theme}>
           <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="training" />
-            <Stack.Screen name="review" />
-            <Stack.Screen name="battlecards" />
-            <Stack.Screen name="mission-complete" />
-            <Stack.Screen name="seed" />
-          </Stack>
+          <View style={styles.responsiveContainer}>
+            <View style={styles.contentContainer}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="training" />
+                <Stack.Screen name="review" />
+                <Stack.Screen name="battlecards" />
+                <Stack.Screen name="mission-complete" />
+                <Stack.Screen name="seed" />
+              </Stack>
+            </View>
+          </View>
         </PaperProvider>
       </AppProvider>
     </ErrorBoundary>
@@ -57,5 +61,16 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.textSecondary,
     fontSize: 16,
+  },
+  responsiveContainer: {
+    flex: 1,
+    backgroundColor: '#000000', // Root background for desktop margins
+    alignItems: 'center', // Center content horizontally
+  },
+  contentContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 600, // Limit width on large screens
+    backgroundColor: Colors.background,
   },
 });

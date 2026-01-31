@@ -23,7 +23,7 @@ const QUICK_VALUES = ['0', '1-2', '3-4', '5-6', '7-8', '9+'];
 export default function GeneralLog() {
   const router = useRouter();
   const { user, addTrainingLog } = useApp();
-  
+
   const [trainingType, setTrainingType] = useState<GeneralTrainingType>('rolling');
   const [escapes, setEscapes] = useState('1-2');
   const [attempts, setAttempts] = useState('3-4');
@@ -93,9 +93,9 @@ export default function GeneralLog() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content}>
-        <Button 
-          mode="text" 
-          onPress={() => router.back()} 
+        <Button
+          mode="text"
+          onPress={() => router.back()}
           icon="arrow-left"
           style={styles.backButton}
         >
@@ -255,7 +255,7 @@ export default function GeneralLog() {
         </Card>
 
         <View style={styles.footer}>
-          <Button 
+          <Button
             onPress={handleSave}
             loading={isSaving}
             disabled={isSaving}
@@ -306,11 +306,13 @@ const styles = StyleSheet.create({
   typeCard: {
     width: '47%',
     backgroundColor: Colors.surface,
-    borderRadius: 12,
+    borderRadius: 16, // Softer
     padding: spacing.md,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: Colors.border,
+    minHeight: 110, // Ensure height
+    justifyContent: 'center',
   },
   typeCardSelected: {
     borderColor: Colors.primary,
@@ -338,17 +340,19 @@ const styles = StyleSheet.create({
   optionGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: 12, // Increased gap
+    marginBottom: spacing.lg,
   },
   optionButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    paddingVertical: 12, // Increased padding
+    paddingHorizontal: 16,
+    borderRadius: 12, // Softer corners
     borderWidth: 1,
     borderColor: Colors.border,
-    minWidth: 60,
+    minWidth: 70, // Wider tap target
+    minHeight: 48, // Accessibility standard
     alignItems: 'center',
+    justifyContent: 'center',
   },
   optionButtonSelected: {
     backgroundColor: Colors.primary,
