@@ -41,16 +41,22 @@ export default function HowItWorks() {
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width);
+
+  const handleLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    setContainerWidth(width);
+  };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const index = Math.round(contentOffsetX / width);
+    const index = Math.round(contentOffsetX / containerWidth);
     setCurrentIndex(index);
   };
 
   const handleNext = () => {
     if (currentIndex < STEPS.length - 1) {
-      scrollViewRef.current?.scrollTo({ x: (currentIndex + 1) * width, animated: true });
+      scrollViewRef.current?.scrollTo({ x: (currentIndex + 1) * containerWidth, animated: true });
     } else {
       router.push('/(auth)/profile-setup');
     }
@@ -63,8 +69,8 @@ export default function HowItWorks() {
   return (
     <SafeAreaView style={styles.container}>
       <OnboardingProgress totalSteps={5} currentStep={1} />
-      
-      <View style={styles.content}>
+
+      <View style={styles.content} onLayout={handleLayout}>
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -75,7 +81,7 @@ export default function HowItWorks() {
           style={styles.scrollView}
         >
           {STEPS.map((step, index) => (
-            <StepCard key={index} step={step} />
+            <StepCard key={index} step={step} width={containerWidth} />
           ))}
         </ScrollView>
 
@@ -111,9 +117,10 @@ interface StepCardProps {
     description: string;
     duration: string;
   };
+  width: number;
 }
 
-const StepCard: React.FC<StepCardProps> = ({ step }) => {
+const StepCard: React.FC<StepCardProps> = ({ step, width }) => {
   return (
     <View style={[styles.stepCard, { width }]}>
       <Text style={styles.emoji}>{step.emoji}</Text>
@@ -131,6 +138,7 @@ const StepCard: React.FC<StepCardProps> = ({ step }) => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

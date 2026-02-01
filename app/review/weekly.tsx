@@ -24,10 +24,39 @@ export default function WeeklyReview() {
   });
 
   useEffect(() => {
-    if (activeMission) {
-      calculateWeeklyStats();
+    if (activeMission && trainingLogs.length > 0) {
+      const review = calculateWeeklyStats();
+      if (review && weekNumber) {
+        saveReview(review);
+      }
     }
   }, [activeMission, trainingLogs]);
+
+  const { addWeeklyReview, weeklyReviews } = useApp();
+
+  const saveReview = async (statsResult: any) => {
+    const existing = weeklyReviews.find(r =>
+      r.missionId === activeMission?.id && r.weekNumber === parseInt(weekNumber as string)
+    );
+
+    if (existing) return;
+
+    try {
+      await addWeeklyReview({
+        id: `review-${activeMission?.id}-${weekNumber}`,
+        userId: activeMission?.userId || '',
+        missionId: activeMission?.id || '',
+        weekNumber: parseInt(weekNumber as string) || 1,
+        weekStartDate: new Date(), // This should ideally be the start of the week
+        totalSessions: trainingLogs.filter(log => log.missionId === activeMission?.id).length,
+        averageEscapeRate: statsResult.thisWeekRate / 100,
+        recurringProblem: statsResult.recurringProblem,
+        createdAt: new Date(),
+      });
+    } catch (error) {
+      console.error('Error saving weekly review:', error);
+    }
+  };
 
   const calculateWeeklyStats = () => {
     const missionLogs = trainingLogs.filter(log => log.missionId === activeMission?.id);
@@ -41,8 +70,8 @@ export default function WeeklyReview() {
 
     const thisWeekRate = thisWeekLogs.length > 0
       ? Math.round(
-          (thisWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / thisWeekLogs.length) * 100
-        )
+        (thisWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / thisWeekLogs.length) * 100
+      )
       : 0;
 
     // Last week
@@ -56,8 +85,8 @@ export default function WeeklyReview() {
 
     const lastWeekRate = lastWeekLogs.length > 0
       ? Math.round(
-          (lastWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / lastWeekLogs.length) * 100
-        )
+        (lastWeekLogs.reduce((sum, log) => sum + log.escapeRate, 0) / lastWeekLogs.length) * 100
+      )
       : 0;
 
     // Find recurring problem
@@ -72,18 +101,21 @@ export default function WeeklyReview() {
       ([, a], [, b]) => b - a
     )[0];
 
-    setStats({
+    const result = {
       thisWeekRate,
       lastWeekRate,
       improvement: thisWeekRate - lastWeekRate,
       recurringProblem: topProblem?.[0] || 'No specific problem identified',
       problemCount: topProblem?.[1] || 0,
-    });
+    };
+
+    setStats(result);
+    return result;
   };
 
   const handleFeedback = (helpful: boolean) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // In real app, save feedback
+    // In real app, save feedback to Supabase as well
   };
 
   const week = parseInt(weekNumber as string) || 1;
@@ -91,9 +123,9 @@ export default function WeeklyReview() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.content}>
-        <Button 
-          mode="text" 
-          onPress={() => router.back()} 
+        <Button
+          mode="text"
+          onPress={() => router.back()}
           icon="arrow-left"
           style={styles.backButton}
         >

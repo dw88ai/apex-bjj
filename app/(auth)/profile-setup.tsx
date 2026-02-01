@@ -16,7 +16,7 @@ import { useApp } from '../../context/AppContext';
 export default function ProfileSetup() {
   const router = useRouter();
   const { setUser } = useApp();
-  
+
   const [beltLevel, setBeltLevel] = useState<BeltLevel>('white');
   const [trainingFrequency, setTrainingFrequency] = useState<TrainingFrequency>('3x');
   const [problemId, setProblemId] = useState(PROBLEM_OPTIONS[0].id);
@@ -29,9 +29,9 @@ export default function ProfileSetup() {
       trainingFrequency,
       createdAt: new Date(),
     };
-    
+
     await setUser(user);
-    
+
     // Pass selected problem to mission preview
     router.push({
       pathname: '/(auth)/mission-preview',
@@ -42,7 +42,7 @@ export default function ProfileSetup() {
   return (
     <SafeAreaView style={styles.container}>
       <OnboardingProgress totalSteps={5} currentStep={3} />
-      
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View>
           <Text variant="displaySmall" style={styles.title}>

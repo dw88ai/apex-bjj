@@ -60,8 +60,8 @@ export default function Welcome() {
           <Button onPress={() => router.push('/(auth)/how-it-works')}>
             Start Your First Mission
           </Button>
-          <Button 
-            mode="text" 
+          <Button
+            mode="text"
             onPress={() => router.push('/(auth)/login' as any)}
             style={styles.signInButton}
           >

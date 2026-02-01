@@ -118,13 +118,16 @@ export const syncTrainingLog = async (log: TrainingLog): Promise<void> => {
       id: log.id,
       user_id: userId,
       mission_id: log.missionId || null,
+      game_plan_id: log.gamePlanId || null,
       session_date: log.sessionDate.toISOString(),
+      voice_transcript: log.voiceTranscript || null,
       escape_attempts: log.escapeAttempts,
       successful_escapes: log.successfulEscapes,
       escape_rate: log.escapeRate,
       main_problem: log.mainProblem || null,
       training_notes: log.trainingNotes || null,
       intensity_level: log.intensityLevel || null,
+      general_training_type: log.generalTrainingType || null,
       objectives_achieved: log.objectivesAchieved || [],
       created_at: log.createdAt.toISOString(),
     });
@@ -151,11 +154,42 @@ export const syncWeeklyReview = async (review: WeeklyReview): Promise<void> => {
       total_sessions: review.totalSessions,
       average_escape_rate: review.averageEscapeRate,
       recurring_problem: review.recurringProblem || null,
+      suggested_fix_title: review.suggestedFixTitle || null,
+      suggested_fix_description: review.suggestedFixDescription || null,
+      video_resource_url: review.videoResourceUrl || null,
+      video_timestamp: review.videoTimestamp || null,
+      user_feedback: review.userFeedback || null,
       created_at: review.createdAt.toISOString(),
     });
   } catch (error) {
     // Silent fail - offline or network error
     console.debug('[Supabase] Weekly review sync failed (offline?):', error);
+  }
+};
+
+/**
+ * Sync a session game plan to Supabase (non-blocking)
+ */
+export const syncSessionGamePlan = async (gamePlan: any): Promise<void> => {
+  const userId = await getCurrentUserId();
+  if (!userId) return;
+
+  try {
+    await supabase.from('session_game_plans').upsert({
+      id: gamePlan.id,
+      user_id: userId,
+      mission_id: gamePlan.missionId,
+      week_number: gamePlan.weekNumber,
+      generated_date: gamePlan.generatedDate.toISOString(),
+      objectives: gamePlan.objectives || [],
+      drill_recommendations: gamePlan.drillRecommendations || [],
+      mental_cue: gamePlan.mentalCue || null,
+      rolling_strategy: gamePlan.rollingStrategy || {},
+      fallback_plan: gamePlan.fallbackPlan || null,
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.debug('[Supabase] Game plan sync failed (offline?):', error);
   }
 };
 
@@ -166,6 +200,9 @@ export const syncUserProfile = async (profile: {
   beltLevel: string;
   trainingFrequency: string;
   onboardingComplete: boolean;
+  timezone?: string;
+  pushToken?: string;
+  subscriptionTier?: 'free' | 'premium';
 }): Promise<void> => {
   const userId = await getCurrentUserId();
   if (!userId) return;
@@ -175,6 +212,9 @@ export const syncUserProfile = async (profile: {
       belt_level: profile.beltLevel,
       training_frequency: profile.trainingFrequency,
       onboarding_complete: profile.onboardingComplete,
+      timezone: profile.timezone || null,
+      push_token: profile.pushToken || null,
+      subscription_tier: profile.subscriptionTier || 'free',
     }).eq('id', userId);
   } catch (error) {
     // Silent fail - offline or network error
@@ -194,16 +234,18 @@ export const fetchUserData = async (): Promise<{
   missions: any[];
   trainingLogs: any[];
   weeklyReviews: any[];
+  gamePlans: any[];
   profile: any | null;
 } | null> => {
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
   try {
-    const [missions, logs, reviews, profile] = await Promise.all([
+    const [missions, logs, reviews, gamePlans, profile] = await Promise.all([
       supabase.from('missions').select('*').eq('user_id', userId),
       supabase.from('training_logs').select('*').eq('user_id', userId),
       supabase.from('weekly_reviews').select('*').eq('user_id', userId),
+      supabase.from('session_game_plans').select('*').eq('user_id', userId),
       supabase.from('profiles').select('*').eq('id', userId).single(),
     ]);
 
@@ -211,11 +253,30 @@ export const fetchUserData = async (): Promise<{
       missions: missions.data || [],
       trainingLogs: logs.data || [],
       weeklyReviews: reviews.data || [],
+      gamePlans: gamePlans.data || [],
       profile: profile.data,
     };
   } catch (error) {
     console.error('[Supabase] Failed to fetch user data:', error);
     return null;
+  }
+};
+
+/**
+ * Fetch content library from Supabase
+ */
+export const fetchContentLibrary = async (position?: string): Promise<any[]> => {
+  try {
+    let query = supabase.from('content_library').select('*');
+    if (position) {
+      query = query.eq('position', position);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('[Supabase] Failed to fetch content library:', error);
+    return [];
   }
 };
 

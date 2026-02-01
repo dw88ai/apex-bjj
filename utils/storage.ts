@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Mission, TrainingLog, WeeklyReview, SessionGamePlan } from '../types';
-import { 
-  syncMission, 
-  syncTrainingLog, 
-  syncWeeklyReview, 
+import {
+  syncMission,
+  syncTrainingLog,
+  syncWeeklyReview,
   syncUserProfile,
-  deleteTrainingLogFromCloud 
+  deleteTrainingLogFromCloud
 } from '../lib/supabase';
 
 const KEYS = {
@@ -21,13 +21,13 @@ const KEYS = {
 // User
 export const saveUser = async (user: User): Promise<void> => {
   await AsyncStorage.setItem(KEYS.USER, JSON.stringify(user));
-  
+
   // Background sync profile to cloud (non-blocking)
   syncUserProfile({
     beltLevel: user.beltLevel,
     trainingFrequency: user.trainingFrequency,
     onboardingComplete: true,
-  }).catch(() => {});
+  }).catch(() => { });
 };
 
 export const getUser = async (): Promise<User | null> => {
@@ -43,17 +43,17 @@ export const getUser = async (): Promise<User | null> => {
 export const saveMission = async (mission: Mission): Promise<void> => {
   const missions = await getMissions();
   const existingIndex = missions.findIndex(m => m.id === mission.id);
-  
+
   if (existingIndex >= 0) {
     missions[existingIndex] = mission;
   } else {
     missions.push(mission);
   }
-  
+
   await AsyncStorage.setItem(KEYS.MISSIONS, JSON.stringify(missions));
-  
+
   // Background sync to cloud (non-blocking)
-  syncMission(mission).catch(() => {});
+  syncMission(mission).catch(() => { });
 };
 
 export const getMissions = async (): Promise<Mission[]> => {
@@ -86,35 +86,35 @@ export const getActiveMissionId = async (): Promise<string | null> => {
 export const saveTrainingLog = async (log: TrainingLog): Promise<void> => {
   const logs = await getTrainingLogs();
   const existingIndex = logs.findIndex(l => l.id === log.id);
-  
+
   if (existingIndex >= 0) {
     logs[existingIndex] = log;
   } else {
     logs.push(log);
   }
-  
+
   await AsyncStorage.setItem(KEYS.TRAINING_LOGS, JSON.stringify(logs));
-  
+
   // Background sync to cloud (non-blocking)
-  syncTrainingLog(log).catch(() => {});
+  syncTrainingLog(log).catch(() => { });
 };
 
 export const getTrainingLogs = async (missionId?: string): Promise<TrainingLog[]> => {
   const data = await AsyncStorage.getItem(KEYS.TRAINING_LOGS);
   if (!data) return [];
   const logs = JSON.parse(data);
-  
+
   // Convert date strings back to Date objects
   const parsedLogs = logs.map((log: any) => ({
     ...log,
     sessionDate: new Date(log.sessionDate),
     createdAt: new Date(log.createdAt),
   }));
-  
+
   if (missionId) {
     return parsedLogs.filter((log: TrainingLog) => log.missionId === missionId);
   }
-  
+
   return parsedLogs;
 };
 
@@ -139,19 +139,24 @@ export const updateTrainingLog = async (logId: string, updates: Partial<Training
   try {
     const logs = await getTrainingLogs();
     const index = logs.findIndex(l => l.id === logId);
-    
+
     if (index === -1) {
       throw new Error(`Training log with ID ${logId} not found`);
     }
-    
+
     // Merge updates with existing log
-    logs[index] = {
+    const updatedLog = {
       ...logs[index],
       ...updates,
       id: logId, // Ensure ID cannot be changed
     };
-    
+
+    logs[index] = updatedLog;
+
     await AsyncStorage.setItem(KEYS.TRAINING_LOGS, JSON.stringify(logs));
+
+    // Background sync to cloud (non-blocking)
+    syncTrainingLog(updatedLog).catch(() => { });
   } catch (error) {
     console.error('Error updating training log:', error);
     throw error;
@@ -162,15 +167,15 @@ export const deleteTrainingLog = async (logId: string): Promise<void> => {
   try {
     const logs = await getTrainingLogs();
     const filteredLogs = logs.filter(l => l.id !== logId);
-    
+
     if (filteredLogs.length === logs.length) {
       throw new Error(`Training log with ID ${logId} not found`);
     }
-    
+
     await AsyncStorage.setItem(KEYS.TRAINING_LOGS, JSON.stringify(filteredLogs));
-    
+
     // Background delete from cloud (non-blocking)
-    deleteTrainingLogFromCloud(logId).catch(() => {});
+    deleteTrainingLogFromCloud(logId).catch(() => { });
   } catch (error) {
     console.error('Error deleting training log:', error);
     throw error;
@@ -181,35 +186,35 @@ export const deleteTrainingLog = async (logId: string): Promise<void> => {
 export const saveWeeklyReview = async (review: WeeklyReview): Promise<void> => {
   const reviews = await getWeeklyReviews();
   const existingIndex = reviews.findIndex(r => r.id === review.id);
-  
+
   if (existingIndex >= 0) {
     reviews[existingIndex] = review;
   } else {
     reviews.push(review);
   }
-  
+
   await AsyncStorage.setItem(KEYS.WEEKLY_REVIEWS, JSON.stringify(reviews));
-  
+
   // Background sync to cloud (non-blocking)
-  syncWeeklyReview(review).catch(() => {});
+  syncWeeklyReview(review).catch(() => { });
 };
 
 export const getWeeklyReviews = async (missionId?: string): Promise<WeeklyReview[]> => {
   const data = await AsyncStorage.getItem(KEYS.WEEKLY_REVIEWS);
   if (!data) return [];
   const reviews = JSON.parse(data);
-  
+
   // Convert date strings back to Date objects
   const parsedReviews = reviews.map((review: any) => ({
     ...review,
     weekStartDate: new Date(review.weekStartDate),
     createdAt: new Date(review.createdAt),
   }));
-  
+
   if (missionId) {
     return parsedReviews.filter((review: WeeklyReview) => review.missionId === missionId);
   }
-  
+
   return parsedReviews;
 };
 
