@@ -1,94 +1,97 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Modal as RNModal, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, ActivityIndicator, TextInput } from 'react-native-paper';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Modal as RNModal, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
+import { Text, ActivityIndicator, TextInput, IconButton } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Audio } from 'expo-av';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Button } from '../../components/ui/Button';
-import { Card } from '../../components/ui/Card';
 import { Colors } from '../../constants/colors';
 import { spacing } from '../../constants/theme';
 import { useApp } from '../../context/AppContext';
-import { mockTranscribe, mockParseTranscript } from '../../utils/mockData';
 import { TrainingLog, SessionGamePlan, ObjectiveAchievement } from '../../types';
 import { getTodaysGamePlan } from '../../utils/gamePlanGenerator';
-import * as Haptics from 'expo-haptics';
+import { mockTranscribe, mockParseTranscript } from '../../utils/mockData';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+type Step = 1 | 2 | 3 | 4;
 
 export default function PostSession() {
   const router = useRouter();
   const { activeMission, user, addTrainingLog, trainingLogs } = useApp();
-
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [parsedData, setParsedData] = useState<{
-    escapeAttempts: number;
-    successfulEscapes: number;
-    mainProblem: string;
-    trainingNotes: string;
-    intensityLevel: number;
-  } | null>(null);
-  const [showQuickLog, setShowQuickLog] = useState(false);
-  const [timerRef, setTimerRef] = useState<ReturnType<typeof setInterval> | null>(null);
-
-  // Quick log state
-  const [quickEscapes, setQuickEscapes] = useState('1-2');
-  const [quickAttempts, setQuickAttempts] = useState('3-5');
-  const [quickProblem, setQuickProblem] = useState('');
-  const [quickNotes, setQuickNotes] = useState('');
-
-  // Game plan and objectives tracking
-  const [gamePlan, setGamePlan] = useState<SessionGamePlan | null>(null);
-  const [objectiveAchievements, setObjectiveAchievements] = useState<Record<string, 'yes' | 'partial' | 'no'>>({});
-  const [showObjectivesReview, setShowObjectivesReview] = useState(false);
-
   const { initialMode } = useLocalSearchParams();
 
-  // Load game plan on mount and check params
-  React.useEffect(() => {
+  // Wizard State
+  const [step, setStep] = useState<Step>(1);
+  const [winsTranscript, setWinsTranscript] = useState('');
+  const [challengesTranscript, setChallengesTranscript] = useState('');
+  const [escapeAttempts, setEscapeAttempts] = useState('0');
+  const [successfulEscapes, setSuccessfulEscapes] = useState('0');
+  const [intensity, setIntensity] = useState(7);
+
+  // Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // UI State
+  const [showQuickLog, setShowQuickLog] = useState(false);
+  const [gamePlan, setGamePlan] = useState<SessionGamePlan | null>(null);
+
+  useEffect(() => {
     if (initialMode === 'quick') {
       setShowQuickLog(true);
     }
     loadGamePlan();
   }, [activeMission, initialMode]);
 
-  // Cleanup timer on unmount
-  React.useEffect(() => {
-    return () => {
-      if (timerRef) {
-        clearInterval(timerRef);
-      }
-    };
-  }, [timerRef]);
+  useEffect(() => {
+    if (isRecording) {
+      startPulseAnimation();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isRecording]);
 
   const loadGamePlan = async () => {
     if (!activeMission || !user) return;
-
     try {
       const recentLogs = trainingLogs
         .filter(log => log.missionId === activeMission.id)
         .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
         .slice(0, 5);
-
       const plan = await getTodaysGamePlan(activeMission, recentLogs, user.beltLevel);
       setGamePlan(plan);
-
-      // Initialize objectives achievements
-      const initialAchievements: Record<string, 'yes' | 'partial' | 'no'> = {};
-      plan.objectives.forEach(obj => {
-        initialAchievements[obj.id] = 'no';
-      });
-      setObjectiveAchievements(initialAchievements);
     } catch (error) {
       console.error('Error loading game plan:', error);
     }
   };
 
+  const startPulseAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  };
+
   const startRecording = async () => {
     try {
-      await Audio.requestPermissionsAsync();
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== 'granted') return;
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -100,36 +103,14 @@ export default function PostSession() {
 
       setRecording(recording);
       setIsRecording(true);
-      setRecordingTime(0);
-
-      // Simulate timer
-      const timer = setInterval(() => {
-        setRecordingTime((prev) => {
-          if (prev >= 60) {
-            stopRecording();
-            return 60;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-      setTimerRef(timer);
-
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch (err) {
       console.error('Failed to start recording', err);
-      alert('Could not start recording. Please check microphone permissions.');
     }
   };
 
   const stopRecording = async () => {
     if (!recording) return;
-
-    // Clear timer
-    if (timerRef) {
-      clearInterval(timerRef);
-      setTimerRef(null);
-    }
-
     setIsRecording(false);
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
@@ -138,588 +119,305 @@ export default function PostSession() {
     if (uri) {
       await processRecording(uri);
     }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   const processRecording = async (uri: string) => {
     setIsProcessing(true);
     try {
-      // Mock transcription and parsing
-      const transcriptText = await mockTranscribe(uri);
-      setTranscript(transcriptText);
-
-      const parsed = await mockParseTranscript(transcriptText);
-      setParsedData(parsed);
+      const text = await mockTranscribe(uri);
+      if (step === 1) setWinsTranscript(prev => prev + (prev ? ' ' : '') + text);
+      if (step === 2) setChallengesTranscript(prev => prev + (prev ? ' ' : '') + text);
     } catch (error) {
-      console.error('Error processing recording:', error);
+      console.error('Error processing:', error);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const saveLog = async () => {
-    if (!parsedData || !activeMission || !user) return;
-
-    // Validation
-    const attempts = Math.max(0, Math.min(100, parsedData.escapeAttempts || 0));
-    const escapes = Math.max(0, Math.min(attempts, parsedData.successfulEscapes || 0));
-
-    if (attempts === 0) {
-      alert('Please enter at least 1 escape attempt');
-      return;
+  const handleNext = () => {
+    if (step < 4) {
+      setStep((step + 1) as Step);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      saveLog();
     }
-
-    // Show objectives review if we have a game plan
-    if (gamePlan && gamePlan.objectives.length > 0) {
-      setShowObjectivesReview(true);
-      return;
-    }
-
-    // Save without objectives if no game plan
-    await saveLogWithObjectives();
   };
 
-  const saveLogWithObjectives = async () => {
-    if (!parsedData || !activeMission || !user) return;
-
-    const attempts = Math.max(0, Math.min(100, parsedData.escapeAttempts || 0));
-    const escapes = Math.max(0, Math.min(attempts, parsedData.successfulEscapes || 0));
-
-    try {
-      // Build objectives achievements array
-      const objectivesAchieved: ObjectiveAchievement[] = gamePlan
-        ? gamePlan.objectives.map(obj => ({
-          objectiveId: obj.id,
-          objectiveText: obj.description,
-          targetReps: obj.targetReps,
-          achieved: objectiveAchievements[obj.id] || 'no',
-        }))
-        : [];
-
-      const log: TrainingLog = {
-        id: `log-${Date.now()}`,
-        userId: user.id,
-        missionId: activeMission.id,
-        sessionDate: new Date(),
-        voiceTranscript: transcript,
-        escapeAttempts: attempts,
-        successfulEscapes: escapes,
-        escapeRate: attempts > 0 ? escapes / attempts : 0,
-        mainProblem: parsedData.mainProblem || undefined,
-        trainingNotes: parsedData.trainingNotes || undefined,
-        intensityLevel: Math.max(1, Math.min(10, parsedData.intensityLevel || 7)),
-        objectivesAchieved: objectivesAchieved.length > 0 ? objectivesAchieved : undefined,
-        gamePlanId: gamePlan?.id,
-        createdAt: new Date(),
-      };
-
-      await addTrainingLog(log);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setShowObjectivesReview(false);
+  const handleBack = () => {
+    if (step > 1) {
+      setStep((step - 1) as Step);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
       router.back();
-    } catch (error) {
-      console.error('Error saving log:', error);
-      alert('Failed to save training log. Please try again.');
     }
   };
 
-  const saveQuickLog = async () => {
+  const saveLog = async () => {
     if (!activeMission || !user) return;
 
-    const escapes = parseQuickValue(quickEscapes);
-    const attempts = parseQuickValue(quickAttempts);
+    const attemptsNum = parseInt(escapeAttempts) || 0;
+    const escapesNum = parseInt(successfulEscapes) || 0;
 
-    // Validation
-    if (attempts === 0) {
-      alert('Please select at least 1 escape attempt');
-      return;
-    }
-
-    if (escapes > attempts) {
-      alert('Successful escapes cannot be more than attempts');
-      return;
-    }
+    const log: TrainingLog = {
+      id: `log-${Date.now()}`,
+      userId: user.id,
+      missionId: activeMission.id,
+      sessionDate: new Date(),
+      voiceTranscript: `Wins: ${winsTranscript}\nChallenges: ${challengesTranscript}`,
+      escapeAttempts: attemptsNum,
+      successfulEscapes: escapesNum,
+      escapeRate: attemptsNum > 0 ? escapesNum / attemptsNum : 0,
+      mainProblem: challengesTranscript.substring(0, 100),
+      trainingNotes: winsTranscript + '\n' + challengesTranscript,
+      intensityLevel: intensity,
+      createdAt: new Date(),
+    };
 
     try {
-      const log: TrainingLog = {
-        id: `log-${Date.now()}`,
-        userId: user.id,
-        missionId: activeMission.id,
-        sessionDate: new Date(),
-        escapeAttempts: attempts,
-        successfulEscapes: escapes,
-        escapeRate: attempts > 0 ? escapes / attempts : 0,
-        mainProblem: quickProblem || undefined,
-        trainingNotes: quickNotes || undefined,
-        intensityLevel: 7,
-        createdAt: new Date(),
-      };
-
       await addTrainingLog(log);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setShowQuickLog(false);
-      router.back();
+      router.replace('/(tabs)');
     } catch (error) {
-      console.error('Error saving quick log:', error);
-      alert('Failed to save training log. Please try again.');
+      console.error('Error saving:', error);
     }
   };
 
-  const parseQuickValue = (value: string): number => {
-    if (value.includes('+')) return parseInt(value) + 2;
-    if (value.includes('-')) {
-      const parts = value.split('-');
-      return Math.floor((parseInt(parts[0]) + parseInt(parts[1])) / 2);
+  const renderProgress = () => (
+    <View style={styles.progressContainer}>
+      {[1, 2, 3, 4].map((i) => (
+        <View
+          key={i}
+          style={[
+            styles.progressSegment,
+            i <= step && styles.progressSegmentActive,
+            i === step && styles.progressSegmentCurrent
+          ]}
+        />
+      ))}
+    </View>
+  );
+
+  const getStepTitle = () => {
+    switch (step) {
+      case 1: return "What went well?";
+      case 2: return "What was a challenge?";
+      case 3: return "How did the stats look?";
+      case 4: return "Review & Intensity";
     }
-    return parseInt(value) || 0;
   };
 
-  const reRecord = () => {
-    setTranscript('');
-    setParsedData(null);
-    setRecordingTime(0);
+  const getStepSubtitle = () => {
+    switch (step) {
+      case 1: return "Describe one positive technical win today";
+      case 2: return "What position or movement felt difficult?";
+      case 3: return "Enter your attempts and escapes";
+      case 4: return "Final summary of your training de-brief";
+    }
   };
-
-  if (!activeMission) {
-    router.back();
-    return null;
-  }
-
-  const positionName = activeMission.positionFocus.replace('_', ' ');
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content}>
-        <Button
-          mode="text"
-          onPress={() => router.back()}
-          icon="arrow-left"
-          style={styles.backButton}
-        >
-          Cancel
-        </Button>
-        <Text variant="headlineLarge" style={styles.title}>
-          How did {positionName} escapes go?
-        </Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerIcon}>
+          <MaterialCommunityIcons name="close" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text variant="titleMedium" style={styles.headerTitle}>BJJ Reflection</Text>
+        <TouchableOpacity style={styles.headerIcon}>
+          <MaterialCommunityIcons name="help-circle-outline" size={24} color={Colors.primary} />
+        </TouchableOpacity>
+      </View>
 
-        {!isRecording && !transcript && !isProcessing && (
-          <TouchableOpacity style={styles.recordButton} onPress={startRecording}>
-            <Card style={styles.recordCard}>
-              <View style={styles.micIconContainer}>
-                <Text variant="displayMedium" style={styles.micIcon}>
-                  🎤
-                </Text>
-              </View>
-              <Text variant="headlineSmall" style={styles.recordText}>
-                Tap to record
-              </Text>
-              <Text variant="bodyMedium" style={styles.recordHint}>
-                Just talk naturally about what happened (60 sec max)
-              </Text>
-            </Card>
-          </TouchableOpacity>
-        )}
+      {renderProgress()}
 
-        {isRecording && (
-          <Card style={styles.recordingCard}>
-            <View style={styles.waveform}>
-              <Text variant="displayLarge" style={styles.recordingIcon}>
-                🔴
-              </Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.promptSection}>
+          <Text variant="headlineMedium" style={styles.title}>{getStepTitle()}</Text>
+          <Text variant="bodyLarge" style={styles.subtitle}>{getStepSubtitle()}</Text>
+        </View>
+
+        {(step === 1 || step === 2) && (
+          <View style={styles.recordingArea}>
+            <View style={styles.pulseContainer}>
+              {isRecording && (
+                <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }], opacity: 0.3 }]} />
+              )}
+              <TouchableOpacity
+                style={[styles.micButton, isRecording && styles.micButtonActive]}
+                onPressIn={startRecording}
+                onPressOut={stopRecording}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name={isRecording ? "microphone" : "microphone-outline"}
+                  size={40}
+                  color={isRecording ? Colors.background : Colors.text}
+                />
+              </TouchableOpacity>
             </View>
-            <Text variant="headlineLarge" style={styles.timer}>
-              {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
-            </Text>
-            <Button onPress={stopRecording}>Stop & Process</Button>
-          </Card>
+            <Text style={styles.holdToTalk}>{isRecording ? "Listening..." : "Hold to record"}</Text>
+
+            <View style={styles.transcriptionBox}>
+              <View style={styles.transcriptionHeader}>
+                <View style={[styles.liveDot, isRecording && styles.liveDotActive]} />
+                <Text style={styles.transcriptionLabel}>
+                  {isProcessing ? "PROCESSING..." : isRecording ? "TRANSCRIBING LIVE" : "TRANSCRIPT"}
+                </Text>
+              </View>
+              <Text style={styles.transcriptText}>
+                {step === 1 ? winsTranscript : challengesTranscript || "Your words will appear here..."}
+              </Text>
+              {(winsTranscript !== '' || challengesTranscript !== '') && (
+                <TouchableOpacity onPress={() => step === 1 ? setWinsTranscript('') : setChallengesTranscript('')} style={styles.clearButton}>
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {step === 1 && (
+              <TouchableOpacity onPress={() => setShowQuickLog(true)} style={styles.quickEntryLink}>
+                <Text style={styles.quickEntryText}>Prefer to tap instead of voice?</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
-        {isProcessing && (
-          <Card style={styles.processingCard}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text variant="bodyLarge" style={styles.processingText}>
-              Transcribing and analyzing...
-            </Text>
-          </Card>
-        )}
-
-        {transcript && parsedData && (
-          <View>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Here's what I understood:
-            </Text>
-
-            <Card>
-              <View style={styles.dataRow}>
-                <Text variant="bodyMedium" style={styles.label}>
-                  Escape Attempts:
-                </Text>
+        {step === 3 && (
+          <View style={styles.statsArea}>
+            <View style={styles.statInputRow}>
+              <View style={styles.statInputGroup}>
+                <Text variant="labelLarge" style={styles.statLabel}>Attempts</Text>
                 <TextInput
-                  value={parsedData.escapeAttempts.toString()}
-                  onChangeText={(text) =>
-                    setParsedData({ ...parsedData, escapeAttempts: parseInt(text) || 0 })
-                  }
+                  value={escapeAttempts}
+                  onChangeText={setEscapeAttempts}
                   keyboardType="numeric"
-                  style={styles.input}
                   mode="outlined"
+                  style={styles.statInput}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
                 />
               </View>
-
-              <View style={styles.dataRow}>
-                <Text variant="bodyMedium" style={styles.label}>
-                  Successful Escapes:
-                </Text>
+              <View style={styles.statInputGroup}>
+                <Text variant="labelLarge" style={styles.statLabel}>Escapes</Text>
                 <TextInput
-                  value={parsedData.successfulEscapes.toString()}
-                  onChangeText={(text) =>
-                    setParsedData({ ...parsedData, successfulEscapes: parseInt(text) || 0 })
-                  }
+                  value={successfulEscapes}
+                  onChangeText={setSuccessfulEscapes}
                   keyboardType="numeric"
-                  style={styles.input}
                   mode="outlined"
+                  style={styles.statInput}
+                  outlineColor={Colors.border}
+                  activeOutlineColor={Colors.primary}
                 />
               </View>
+            </View>
 
-              {/* Live Escape Rate Calculator */}
-              <View style={styles.escapeRateCard}>
-                <View style={styles.escapeRateHeader}>
-                  <Text variant="labelLarge" style={styles.escapeRateLabel}>
-                    Your Escape Rate
-                  </Text>
-                  <Text variant="displaySmall" style={[
-                    styles.escapeRateValue,
-                    {
-                      color: parsedData.escapeAttempts > 0
-                        ? (parsedData.successfulEscapes / parsedData.escapeAttempts) >= 0.5
-                          ? Colors.success
-                          : (parsedData.successfulEscapes / parsedData.escapeAttempts) >= 0.3
-                            ? Colors.primary
-                            : Colors.textSecondary
-                        : Colors.textSecondary
-                    }
-                  ]}>
-                    {parsedData.escapeAttempts > 0
-                      ? Math.round((parsedData.successfulEscapes / parsedData.escapeAttempts) * 100)
-                      : 0}%
-                  </Text>
-                </View>
-                {parsedData.escapeAttempts > 0 && (
-                  <View style={styles.escapeRateFeedback}>
-                    <Text variant="bodyMedium" style={styles.escapeRateFraction}>
-                      {parsedData.successfulEscapes} out of {parsedData.escapeAttempts} attempts
-                    </Text>
-                    {(() => {
-                      const rate = parsedData.successfulEscapes / parsedData.escapeAttempts;
-                      const lastSessionRate = trainingLogs.length > 0
-                        ? trainingLogs[trainingLogs.length - 1].escapeRate
-                        : 0;
-                      const improvement = rate - lastSessionRate;
-
-                      if (trainingLogs.length > 0 && improvement !== 0) {
-                        return (
-                          <Text variant="bodySmall" style={[
-                            styles.escapeRateComparison,
-                            { color: improvement > 0 ? Colors.success : Colors.error }
-                          ]}>
-                            {improvement > 0 ? '📈 ' : '📉 '}
-                            {improvement > 0 ? 'Up' : 'Down'} {Math.abs(Math.round(improvement * 100))}% from last session!
-                          </Text>
-                        );
-                      }
-
-                      return (
-                        <Text variant="bodySmall" style={styles.escapeRateMessage}>
-                          {rate >= 0.7 ? '🔥 Excellent work!' :
-                            rate >= 0.5 ? '💪 Great progress!' :
-                              rate >= 0.3 ? '👍 Keep practicing!' :
-                                '🎯 Focus on fundamentals'}
-                        </Text>
-                      );
-                    })()}
-                  </View>
-                )}
-              </View>
-
-              <View style={styles.dataRow}>
-                <Text variant="bodyMedium" style={styles.label}>
-                  Main Problem:
-                </Text>
-                <TextInput
-                  value={parsedData.mainProblem}
-                  onChangeText={(text) => setParsedData({ ...parsedData, mainProblem: text })}
-                  style={styles.inputFull}
-                  mode="outlined"
-                />
-              </View>
-            </Card>
-
-            <Card>
-              <Text variant="labelLarge" style={styles.transcriptLabel}>
-                Full Transcript:
+            <View style={styles.rateDisplay}>
+              <Text style={styles.rateLabel}>Escape Rate</Text>
+              <Text style={styles.rateValue}>
+                {parseInt(escapeAttempts) > 0
+                  ? Math.round((parseInt(successfulEscapes) / parseInt(escapeAttempts)) * 100)
+                  : 0}%
               </Text>
-              <Text variant="bodyMedium" style={styles.transcriptText}>
-                {transcript}
-              </Text>
-            </Card>
-
-            <View style={styles.buttonRow}>
-              <Button mode="outlined" onPress={reRecord} style={styles.halfButton}>
-                Re-record
-              </Button>
-              <Button onPress={saveLog} style={styles.halfButton}>
-                Save Session
-              </Button>
             </View>
           </View>
         )}
 
-        {!isRecording && !transcript && !isProcessing && (
-          <Button mode="text" onPress={() => setShowQuickLog(true)}>
-            Prefer to tap instead of voice?
-          </Button>
+        {step === 4 && (
+          <View style={styles.reviewArea}>
+            <View style={styles.reviewCard}>
+              <Text variant="labelSmall" style={styles.reviewLabel}>WINS</Text>
+              <Text style={styles.reviewText}>{winsTranscript || "No wins recorded"}</Text>
+            </View>
+            <View style={styles.reviewCard}>
+              <Text variant="labelSmall" style={styles.reviewLabel}>CHALLENGES</Text>
+              <Text style={styles.reviewText}>{challengesTranscript || "No challenges recorded"}</Text>
+            </View>
+            <View style={styles.intensitySection}>
+              <Text variant="labelLarge" style={styles.statLabel}>Training Intensity</Text>
+              <View style={styles.intensityRow}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => (
+                  <TouchableOpacity
+                    key={val}
+                    style={[styles.intensityBox, intensity === val && styles.intensityBoxActive]}
+                    onPress={() => setIntensity(val)}
+                  >
+                    <Text style={[styles.intensityText, intensity === val && styles.intensityTextActive]}>{val}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
         )}
       </ScrollView>
 
-      {/* Quick Log Modal */}
-      <RNModal
-        visible={showQuickLog}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowQuickLog(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.modalScrollContent}
-              >
-                <Text variant="headlineMedium" style={styles.modalTitle}>
-                  Quick Log
-                </Text>
+      {/* Navigation Footer */}
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <MaterialCommunityIcons name="undo" size={24} color={Colors.textSecondary} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
+          <Text style={styles.nextButtonText}>
+            {step === 4 ? "Save Reflection" : "Next Prompt"}
+          </Text>
+          <MaterialCommunityIcons name="arrow-right" size={20} color={Colors.background} style={{ marginLeft: 8 }} />
+        </TouchableOpacity>
+      </View>
 
-                <Text variant="bodyMedium" style={styles.questionText}>
-                  How many times did you escape?
-                </Text>
-                <View style={styles.optionGroup}>
-                  {['0', '1-2', '3-4', '5+'].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[
-                        styles.optionButton,
-                        quickEscapes === option && styles.optionButtonSelected,
-                      ]}
-                      onPress={() => setQuickEscapes(option)}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          quickEscapes === option && styles.optionTextSelected,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text variant="bodyMedium" style={styles.questionText}>
-                  How many times did you attempt?
-                </Text>
-                <View style={styles.optionGroup}>
-                  {['1-2', '3-5', '6-8', '9+'].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[
-                        styles.optionButton,
-                        quickAttempts === option && styles.optionButtonSelected,
-                      ]}
-                      onPress={() => setQuickAttempts(option)}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          quickAttempts === option && styles.optionTextSelected,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text variant="bodyMedium" style={styles.questionText}>
-                  Main problem today?
-                </Text>
-                <View style={styles.optionGroupVertical}>
-                  {[
-                    'Lost inside elbow position',
-                    "Couldn't create frames",
-                    'Gave up back during escape',
-                    'Bad timing on hip escape',
-                    'Other',
-                  ].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[
-                        styles.optionButtonWide,
-                        quickProblem === option && styles.optionButtonSelected,
-                      ]}
-                      onPress={() => setQuickProblem(option)}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          quickProblem === option && styles.optionTextSelected,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TextInput
-                  placeholder="Any other notes? (optional)"
-                  value={quickNotes}
-                  onChangeText={setQuickNotes}
-                  multiline
-                  numberOfLines={3}
-                  style={styles.notesInput}
-                  mode="outlined"
-                />
-
-                {/* Quick Log Escape Rate Calculator */}
-                {(() => {
-                  const escapes = parseQuickValue(quickEscapes);
-                  const attempts = parseQuickValue(quickAttempts);
-                  const rate = attempts > 0 ? escapes / attempts : 0;
-
-                  return (
-                    <View style={styles.quickEscapeRateCard}>
-                      <View style={styles.escapeRateHeader}>
-                        <Text variant="labelLarge" style={styles.escapeRateLabel}>
-                          Escape Rate
-                        </Text>
-                        <Text variant="displaySmall" style={[
-                          styles.escapeRateValue,
-                          {
-                            color: rate >= 0.5 ? Colors.success :
-                              rate >= 0.3 ? Colors.primary :
-                                Colors.textSecondary
-                          }
-                        ]}>
-                          {Math.round(rate * 100)}%
-                        </Text>
-                      </View>
-                      {attempts > 0 && (
-                        <Text variant="bodyMedium" style={styles.quickEscapeRateFraction}>
-                          ~{escapes} out of ~{attempts} attempts
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })()}
-
-                <View style={styles.modalButtons}>
-                  <Button mode="outlined" onPress={() => setShowQuickLog(false)} style={styles.halfButton}>
-                    Cancel
-                  </Button>
-                  <Button onPress={saveQuickLog} style={styles.halfButton}>
-                    Save
-                  </Button>
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </RNModal>
-
-      {/* Objectives Review Modal */}
-      <RNModal
-        visible={showObjectivesReview}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowObjectivesReview(false)}
-      >
+      {/* Quick Log Modal Overlay */}
+      <RNModal visible={showQuickLog} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.modalScrollContent}
-            >
-              <Text variant="headlineMedium" style={styles.modalTitle}>
-                How did your objectives go?
-              </Text>
-              <Text variant="bodyMedium" style={styles.objectivesDescription}>
-                Tracking your objectives helps improve future game plans
-              </Text>
+            <View style={styles.modalHeader}>
+              <Text variant="titleLarge" style={styles.modalTitle}>Quick Entry</Text>
+              <TouchableOpacity onPress={() => setShowQuickLog(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
 
-              {gamePlan?.objectives.map((objective, index) => (
-                <View key={objective.id} style={styles.objectiveReviewItem}>
-                  <View style={styles.objectiveReviewHeader}>
-                    <Text variant="labelSmall" style={styles.objectiveReviewLabel}>
-                      {objective.priority === 'primary' ? '🎯 PRIMARY' : 'SECONDARY'} OBJECTIVE {index + 1}
-                    </Text>
-                  </View>
-                  <Text variant="bodyLarge" style={styles.objectiveReviewText}>
-                    {objective.description}
-                  </Text>
-                  <Text variant="bodySmall" style={styles.objectiveReviewTarget}>
-                    Target: {objective.targetReps} successful reps
-                  </Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text variant="labelLarge" style={styles.modalLabel}>Main Problem</Text>
+              <TextInput
+                multiline
+                numberOfLines={4}
+                value={challengesTranscript}
+                onChangeText={setChallengesTranscript}
+                mode="outlined"
+                style={styles.modalTextInput}
+                outlineColor={Colors.border}
+                activeOutlineColor={Colors.primary}
+                placeholder="What was the main difficulty today?"
+              />
 
-                  <Text variant="bodyMedium" style={styles.achievementQuestion}>
-                    Did you achieve this?
-                  </Text>
-                  <View style={styles.achievementButtons}>
-                    {(['yes', 'partial', 'no'] as const).map((achievement) => (
-                      <TouchableOpacity
-                        key={achievement}
-                        style={[
-                          styles.achievementButton,
-                          objectiveAchievements[objective.id] === achievement && styles.achievementButtonSelected,
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setObjectiveAchievements(prev => ({
-                            ...prev,
-                            [objective.id]: achievement,
-                          }));
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.achievementButtonText,
-                            objectiveAchievements[objective.id] === achievement && styles.achievementButtonTextSelected,
-                          ]}
-                        >
-                          {achievement === 'yes' ? '✓ Yes' : achievement === 'partial' ? '~ Partially' : '✗ No'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+              <View style={styles.modalStatRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text variant="labelLarge" style={styles.modalLabel}>Attempts</Text>
+                  <TextInput
+                    value={escapeAttempts}
+                    onChangeText={setEscapeAttempts}
+                    keyboardType="numeric"
+                    mode="outlined"
+                    style={styles.modalInput}
+                  />
                 </View>
-              ))}
-
-              <View style={styles.modalButtons}>
-                <Button
-                  mode="outlined"
-                  onPress={() => setShowObjectivesReview(false)}
-                  style={styles.halfButton}
-                >
-                  Skip
-                </Button>
-                <Button onPress={saveLogWithObjectives} style={styles.halfButton}>
-                  Save Session
-                </Button>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text variant="labelLarge" style={styles.modalLabel}>Escapes</Text>
+                  <TextInput
+                    value={successfulEscapes}
+                    onChangeText={setSuccessfulEscapes}
+                    keyboardType="numeric"
+                    mode="outlined"
+                    style={styles.modalInput}
+                  />
+                </View>
               </View>
+
+              <Button style={{ marginTop: 24 }} onPress={() => {
+                setShowQuickLog(false);
+                setStep(4);
+              }}>
+                Continue to Review
+              </Button>
             </ScrollView>
           </View>
         </View>
@@ -733,290 +431,306 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  content: {
-    flex: 1,
-    padding: spacing.lg,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    height: 56,
   },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.sm,
+  headerIcon: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    color: Colors.text,
+    fontWeight: '700',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 2,
+  },
+  progressSegmentActive: {
+    backgroundColor: Colors.primary,
+  },
+  progressSegmentCurrent: {
+    backgroundColor: Colors.primary,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 100,
+  },
+  promptSection: {
+    alignItems: 'center',
+    marginBottom: spacing.xxl,
   },
   title: {
     color: Colors.text,
-    fontWeight: 'bold',
-    marginBottom: spacing.xl,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
-  recordButton: {
-    marginVertical: spacing.xl,
+  subtitle: {
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
-  recordCard: {
+  recordingArea: {
     alignItems: 'center',
-    padding: spacing.xxl,
-    paddingVertical: 64,
   },
-  micIconContainer: {
-    width: 120,
-    height: 120,
+  pulseContainer: {
+    width: 140,
+    height: 140,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.lg,
-    backgroundColor: 'transparent',
   },
-  micIcon: {
-    fontSize: 80,
-    textAlign: 'center',
-    lineHeight: 88,
+  pulseRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: Colors.primary,
   },
-  recordText: {
-    color: Colors.text,
-    fontWeight: 'bold',
-    marginBottom: spacing.sm,
-  },
-  recordHint: {
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  recordingCard: {
+  micButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xxl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    zIndex: 2,
   },
-  waveform: {
-    marginVertical: spacing.xl,
+  micButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
-  recordingIcon: {
-    fontSize: 80,
-    lineHeight: 88,
-    textAlign: 'center',
-  },
-  timer: {
-    color: Colors.text,
-    fontWeight: 'bold',
-    marginBottom: spacing.lg,
-  },
-  processingCard: {
-    alignItems: 'center',
-    padding: spacing.xxl,
-  },
-  processingText: {
+  holdToTalk: {
     color: Colors.textSecondary,
-    marginTop: spacing.lg,
+    fontSize: 14,
+    marginBottom: spacing.xl,
   },
-  sectionTitle: {
-    color: Colors.text,
-    fontWeight: 'bold',
+  transcriptionBox: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    padding: spacing.lg,
+    minHeight: 180,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  transcriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
-  dataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: spacing.sm,
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.textSecondary,
+    marginHorizontal: 8,
   },
-  label: {
-    color: Colors.text,
-    flex: 1,
+  liveDotActive: {
+    backgroundColor: Colors.error,
   },
-  value: {
-    color: Colors.primary,
-    fontWeight: 'bold',
-  },
-  escapeRateCard: {
-    backgroundColor: Colors.surfaceVariant,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginVertical: spacing.md,
-  },
-  escapeRateHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  escapeRateLabel: {
+  transcriptionLabel: {
     color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  escapeRateValue: {
-    fontWeight: 'bold',
-  },
-  escapeRateFeedback: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  escapeRateFraction: {
-    color: Colors.text,
-    marginBottom: spacing.xs,
-  },
-  escapeRateComparison: {
-    fontWeight: '500',
-  },
-  escapeRateMessage: {
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  input: {
-    width: 80,
-    backgroundColor: Colors.background,
-  },
-  inputFull: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    marginLeft: spacing.sm,
-  },
-  transcriptLabel: {
-    color: Colors.textSecondary,
-    marginBottom: spacing.sm,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   transcriptText: {
     color: Colors.text,
+    fontSize: 16,
     lineHeight: 24,
+    fontStyle: 'italic',
   },
-  buttonRow: {
+  clearButton: {
+    marginTop: spacing.md,
+    alignSelf: 'flex-end',
+  },
+  clearButtonText: {
+    color: Colors.error,
+    fontSize: 12,
+  },
+  quickEntryLink: {
+    marginTop: spacing.xl,
+  },
+  quickEntryText: {
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
     flexDirection: 'row',
-    gap: spacing.md,
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  nextButton: {
+    flex: 1,
+    height: 48,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nextButtonText: {
+    color: Colors.background,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statsArea: {
+    width: '100%',
+  },
+  statInputRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: spacing.xl,
+  },
+  statInputGroup: {
+    flex: 1,
+  },
+  statLabel: {
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  statInput: {
+    backgroundColor: Colors.surface,
+    textColor: Colors.text,
+  },
+  rateDisplay: {
+    alignItems: 'center',
+    padding: spacing.xl,
+    backgroundColor: 'rgba(88, 166, 255, 0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(88, 166, 255, 0.1)',
+  },
+  rateLabel: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  rateValue: {
+    color: Colors.primary,
+    fontSize: 48,
+    fontWeight: 'bold',
+  },
+  reviewArea: {
+    width: '100%',
+  },
+  reviewCard: {
+    backgroundColor: Colors.surface,
+    padding: spacing.lg,
+    borderRadius: 12,
+    marginBottom: spacing.md,
+  },
+  reviewLabel: {
+    color: Colors.primary,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  reviewText: {
+    color: Colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  intensitySection: {
     marginTop: spacing.lg,
   },
-  halfButton: {
-    flex: 1,
+  intensityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  intensityBox: {
+    width: (SCREEN_WIDTH - 64 - 36) / 5,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  intensityBoxActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  intensityText: {
+    color: Colors.text,
+    fontWeight: '600',
+  },
+  intensityTextActive: {
+    color: Colors.background,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: Colors.overlay,
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
-  modalScrollContent: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
   modalTitle: {
     color: Colors.text,
     fontWeight: 'bold',
-    marginBottom: spacing.lg,
   },
-  questionText: {
-    color: Colors.text,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  optionGroup: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  optionGroupVertical: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  optionButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  optionButtonWide: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  optionButtonSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  optionText: {
-    color: Colors.text,
-  },
-  optionTextSelected: {
-    color: Colors.text,
-    fontWeight: 'bold',
-  },
-  notesInput: {
-    backgroundColor: Colors.background,
-    marginBottom: spacing.md,
-  },
-  quickEscapeRateCard: {
-    backgroundColor: Colors.surfaceVariant,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  quickEscapeRateFraction: {
+  modalLabel: {
     color: Colors.textSecondary,
-    marginTop: spacing.xs,
+    marginBottom: 8,
   },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  objectivesDescription: {
-    color: Colors.textSecondary,
-    marginBottom: spacing.lg,
-  },
-  objectiveReviewItem: {
-    backgroundColor: Colors.surfaceVariant,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  objectiveReviewHeader: {
-    marginBottom: spacing.sm,
-  },
-  objectiveReviewLabel: {
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  objectiveReviewText: {
-    color: Colors.text,
-    fontWeight: '500',
-    marginBottom: spacing.xs,
-  },
-  objectiveReviewTarget: {
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    marginBottom: spacing.md,
-  },
-  achievementQuestion: {
-    color: Colors.text,
-    marginBottom: spacing.sm,
-  },
-  achievementButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  achievementButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
+  modalTextInput: {
     backgroundColor: Colors.surface,
+    marginBottom: 20,
   },
-  achievementButtonSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  modalStatRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
   },
-  achievementButtonText: {
-    color: Colors.text,
-    fontSize: 14,
-  },
-  achievementButtonTextSelected: {
-    color: Colors.text,
-    fontWeight: 'bold',
-  },
+  modalInput: {
+    backgroundColor: Colors.surface,
+  }
 });
