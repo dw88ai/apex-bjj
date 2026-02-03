@@ -334,19 +334,23 @@ export default function PostSession() {
               <Text style={styles.reviewText}>{challengesTranscript || "No challenges recorded"}</Text>
             </View>
             <View style={styles.intensitySection}>
-              <Text variant="labelLarge" style={styles.statLabel}>Training Intensity</Text>
-              <View style={styles.intensityRow}>
+              <Text variant="labelLarge" style={styles.intensitySectionLabel}>Training Intensity</Text>
+              <View style={styles.intensityColumn}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => (
                   <TouchableOpacity
                     key={val}
-                    style={[styles.intensityBox, intensity === val && styles.intensityBoxActive]}
-                    onPress={() => setIntensity(val)}
+                    style={[styles.intensityRowItem, intensity === val && styles.intensityRowItemActive]}
+                    onPress={() => {
+                      setIntensity(val);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
                   >
                     <Text style={[styles.intensityText, intensity === val && styles.intensityTextActive]}>{val}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
+
           </View>
         )}
       </ScrollView>
@@ -666,35 +670,40 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   intensitySection: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
+    paddingBottom: spacing.xl,
   },
-  intensityRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  intensitySectionLabel: {
+    color: Colors.textSecondary,
+    marginBottom: spacing.md,
+    fontWeight: '600',
+  },
+  intensityColumn: {
     gap: 8,
-    marginTop: 8,
   },
-  intensityBox: {
-    width: (SCREEN_WIDTH - 64 - 36) / 5,
-    height: 40,
+  intensityRowItem: {
+    width: '100%',
+    height: 48,
     borderRadius: 8,
     backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  intensityBoxActive: {
+  intensityRowItemActive: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
   intensityText: {
     color: Colors.text,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
   intensityTextActive: {
     color: Colors.background,
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.8)',
