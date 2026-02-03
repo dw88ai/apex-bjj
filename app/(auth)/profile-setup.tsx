@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Button } from '../../components/ui/Button';
 import { BeltSelector } from '../../components/ui/BeltSelector';
 import { Dropdown } from '../../components/ui/Dropdown';
@@ -11,37 +12,29 @@ import { OnboardingProgress } from '../../components/ui/OnboardingProgress';
 import { Colors } from '../../constants/colors';
 import { spacing } from '../../constants/theme';
 import { TRAINING_FREQUENCIES, PROBLEM_OPTIONS, BeltLevel, TrainingFrequency } from '../../types';
-import { useApp } from '../../context/AppContext';
 
 export default function ProfileSetup() {
   const router = useRouter();
-  const { setUser } = useApp();
 
   const [beltLevel, setBeltLevel] = useState<BeltLevel>('white');
   const [trainingFrequency, setTrainingFrequency] = useState<TrainingFrequency>('3x');
   const [problemId, setProblemId] = useState(PROBLEM_OPTIONS[0].id);
 
   const handleNext = async () => {
-    // Create user
-    const user = {
-      id: 'user-1', // In real app, this would be generated
+    // Store profile data temporarily for signup screen
+    await AsyncStorage.setItem('onboarding_profile', JSON.stringify({
       beltLevel,
       trainingFrequency,
-      createdAt: new Date(),
-    };
+      problemId,
+    }));
 
-    await setUser(user);
-
-    // Pass selected problem to mission preview
-    router.push({
-      pathname: '/(auth)/mission-preview',
-      params: { problemId },
-    });
+    // Navigate to signup
+    router.push('/(auth)/signup');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <OnboardingProgress totalSteps={5} currentStep={3} />
+      <OnboardingProgress totalSteps={5} currentStep={2} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View>
@@ -80,7 +73,7 @@ export default function ProfileSetup() {
             Back
           </Button>
           <Button onPress={handleNext}>
-            Generate My Mission
+            Continue
           </Button>
         </View>
       </ScrollView>
@@ -97,7 +90,7 @@ const ProblemPositionSelector: React.FC<ProblemPositionSelectorProps> = ({ value
   return (
     <View style={styles.problemSelector}>
       <Text variant="labelLarge" style={styles.problemLabel}>
-        Biggest Problem Position
+        Which position do you want to focus on first?
       </Text>
       <View style={styles.problemGrid}>
         {PROBLEM_OPTIONS.map((problem) => (

@@ -12,6 +12,7 @@ import { spacing } from '../../constants/theme';
 import { Mission, PROBLEM_OPTIONS } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { generateMissionGoals } from '../../utils/mockData';
+import { supabase } from '../../lib/supabase';
 
 export default function MissionPreview() {
   const router = useRouter();
@@ -21,21 +22,29 @@ export default function MissionPreview() {
   const [isGenerating, setIsGenerating] = useState(true);
 
   useEffect(() => {
-    // Simulate AI generating mission
-    setIsGenerating(true);
-    
-    const generateMission = async () => {
+    // Check for authenticated session
+    const checkAuthAndGenerate = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.user?.id) {
+        // No authenticated session, redirect to signup
+        router.replace('/(auth)/signup');
+        return;
+      }
+
+      setIsGenerating(true);
+
       // Simulate processing delay
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       const problem = PROBLEM_OPTIONS.find(p => p.id === problemId) || PROBLEM_OPTIONS[0];
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 28);
 
       const newMission: Mission = {
-        id: 'mission-1',
-        userId: user?.id || 'user-1',
+        id: `mission-${Date.now()}`,
+        userId: session.user.id, // Use real Supabase user ID
         missionType: 'defense',
         positionFocus: problem.position,
         goalDescription: `Escape ${problem.position.replace('_', ' ')} 50% of the time`,
@@ -50,8 +59,8 @@ export default function MissionPreview() {
       setIsGenerating(false);
     };
 
-    generateMission();
-  }, [problemId, user]);
+    checkAuthAndGenerate();
+  }, [problemId, router]);
 
   const handleStart = async () => {
     if (mission) {
@@ -88,7 +97,7 @@ export default function MissionPreview() {
   return (
     <SafeAreaView style={styles.container}>
       <OnboardingProgress totalSteps={5} currentStep={4} />
-      
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text variant="headlineLarge" style={styles.emoji}>
@@ -111,8 +120,8 @@ export default function MissionPreview() {
               Weekly Breakdown
             </Text>
             {mission.weeklyGoals?.map((goal, index) => (
-              <View 
-                key={goal.weekNumber} 
+              <View
+                key={goal.weekNumber}
                 style={styles.weekItem}
               >
                 <View style={styles.weekBadge}>
