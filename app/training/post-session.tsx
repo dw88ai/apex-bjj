@@ -6,6 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Audio } from 'expo-av';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import Slider from '@react-native-community/slider';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
 import { spacing } from '../../constants/theme';
@@ -334,20 +335,30 @@ export default function PostSession() {
               <Text style={styles.reviewText}>{challengesTranscript || "No challenges recorded"}</Text>
             </View>
             <View style={styles.intensitySection}>
-              <Text variant="labelLarge" style={styles.intensitySectionLabel}>Training Intensity</Text>
-              <View style={styles.intensityColumn}>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => (
-                  <TouchableOpacity
-                    key={val}
-                    style={[styles.intensityRowItem, intensity === val && styles.intensityRowItemActive]}
-                    onPress={() => {
-                      setIntensity(val);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Text style={[styles.intensityText, intensity === val && styles.intensityTextActive]}>{val}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.intensityHeader}>
+                <Text variant="labelLarge" style={styles.intensitySectionLabel}>Training Intensity</Text>
+                <Text style={styles.intensityValueText}>{intensity}</Text>
+              </View>
+
+              <View style={styles.sliderContainer}>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={1}
+                  maximumValue={10}
+                  step={1}
+                  value={intensity}
+                  onValueChange={(val) => {
+                    setIntensity(val);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  minimumTrackTintColor={Colors.primary}
+                  maximumTrackTintColor="rgba(255,255,255,0.1)"
+                  thumbTintColor={Colors.primary}
+                />
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>Light</Text>
+                  <Text style={styles.sliderLabel}>Max</Text>
+                </View>
               </View>
             </View>
 
@@ -630,7 +641,6 @@ const styles = StyleSheet.create({
   },
   statInput: {
     backgroundColor: Colors.surface,
-    textColor: Colors.text,
   },
   rateDisplay: {
     alignItems: 'center',
@@ -673,36 +683,42 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingBottom: spacing.xl,
   },
+  intensityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: spacing.lg,
+  },
   intensitySectionLabel: {
     color: Colors.textSecondary,
-    marginBottom: spacing.md,
+    fontSize: 14,
     fontWeight: '600',
   },
-  intensityColumn: {
-    gap: 8,
+  intensityValueText: {
+    color: Colors.primary,
+    fontSize: 32,
+    fontWeight: '800',
   },
-  intensityRowItem: {
+  sliderContainer: {
     width: '100%',
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: spacing.md,
   },
-  intensityRowItemActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  slider: {
+    width: '100%',
+    height: 40,
   },
-  intensityText: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '700',
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: -4,
+    paddingHorizontal: 4,
   },
-  intensityTextActive: {
-    color: Colors.background,
+  sliderLabel: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
   },
+
 
   modalOverlay: {
     flex: 1,
