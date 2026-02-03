@@ -114,6 +114,7 @@ export default function Signup() {
                 params: { problemId },
             });
         } catch (err: any) {
+            console.error('[Signup] catch error:', err);
             setError(err.message || 'An unexpected error occurred');
             setLoading(false);
         }
